@@ -102,7 +102,7 @@ public class WebDavController {
 
             result.put("code","success");
             result.put("result", "0");
-            result.put("url", "http://"+webDavConfig.getLocalIp()+"/img/"+ newFileName);
+            result.put("url", "https://"+webDavConfig.getLocalIp()+"/img/"+ newFileName);
         } catch (IOException e) {
             e.printStackTrace();
             result.put("result", "1");
