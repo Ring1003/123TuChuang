@@ -1,0 +1,18 @@
+server:
+  port: 11223
+
+spring:
+  servlet:
+    multipart:
+      max-request-size: 10240000000
+      max-file-size: 10240000000
+
+webdav:
+  url: https://webdav.pd.123pan.cn/webdav
+  path: /TuChuang
+  username: 15666666666
+  password: 1tt6hxxxxxxxxxxxxxxxxx
+
+localUrl:
+  ip: img.wiki
+

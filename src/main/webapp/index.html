@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>图床</title>
+    <link rel="stylesheet" href="static/css/mystyle.css"><!--背景-->
+    <link rel="stylesheet" href="static/layui/css/layui.css">
+    <link rel="shortcut icon" href="./logo.png">
+    <script src="static/js/Message.js"></script>
+    <script src="static/layui/layui.js"></script>
+    <script src="static/js/embed.js"></script>
+    <script src="https://cdn.staticfile.net/jquery/3.7.1/jquery.min.js"></script>
+    <script src="static/js/clipBoard.min.js"></script>
+</head>
+<body>
+<div class="layui-layout layui-layout-admin">
+    <div id="left-gg"></div>
+    <div id="right-gg"></div>
+
+    <div class="header">
+        <div class="layui-container">
+            <div class="layui-row">
+                <div class="layui-col-lg12">
+
+                    <div class="layui-hide-xs menu">
+                        <ul class="layui-nav" lay-filter="">
+                            <li class="layui-nav-item"><a href="https://www.crash.work/aff/QLDAMTOD" target="_blank"> 待优化</a></li>
+                            <span class="layui-nav-bar"></span></ul>
+                    </div>
+                    <div class="menu layui-hide-lg layui-hide-md layui-hide-sm">
+                        <ul class="layui-nav" lay-filter="">
+                            <li class="layui-nav-item"><a  href="https://www.crash.work/aff/QLDAMTOD" target="_blank"> 待优化</a></li>
+                            <span class="layui-nav-bar" style="left: 62.9375px; top: 55px; width: 0px; opacity: 0;"></span>
+                        </ul>
+                    </div>
+                    <div class="layui-hide-xs menu">
+                        <ul class="layui-nav" lay-filter="">
+                            <li class="layui-nav-item"><a id="alert2"><i class="layui-icon"></i> 使用协议</a></li>
+                            <span class="layui-nav-bar"></span></ul>
+                    </div>
+                    <div class="menu layui-hide-lg layui-hide-md layui-hide-sm">
+                        <ul class="layui-nav" lay-filter="">
+                            <li class="layui-nav-item"><a id="alert"><i class="layui-icon"></i> 使用协议</a></li>
+                            <span class="layui-nav-bar" style="left: 62.9375px; top: 55px; width: 0px; opacity: 0;"></span>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="layui-container">
+        <div class="layui-row">
+            <!-- 首页主要区域 -->
+            <div class="layui-col-lg12">
+                <div id="main">
+                    <div class="alert alert-warning" role="alert">
+                        <span class="alert-inner--icon"><i class="layui-icon"></i></span>
+                        <span class="alert-inner--text">
+                            目前仅支持单文件,大小限制50MB, 由 <a style="color: red;" href="https://www.crash.work/aff/QLDAMTOD"> 破碎工坊 </a> 提供网络环境支持
+                        </span>
+                    </div>
+                    <!-- 上传区域 -->
+                    <div class="layui-form-item">
+                        <div class="layui-upload-drag" id="upimg" name="pic">
+                            <i class="layui-icon"></i>
+                            <p>点击上传图片</p>
+                        </div>
+                    </div>
+                    <!-- 上传区域END -->
+
+                </div>
+            </div>
+            <!-- 首页主要区域END -->
+        </div>
+        <div class="layui-row">
+            <div class="layui-col-lg12">
+                <!-- 上传进度条 -->
+                <div class = "progress">
+                    <div class="layui-progress layui-progress-big" lay-filter="uploadProgress" lay-showPercent="true">
+                        <div class="layui-progress-bar" lay-percent="0%"></div>
+                    </div>
+                </div>
+                <!-- 上传进度条END -->
+            </div>
+            <div class="layui-col-lg12" id = "imgshow">
+                <!-- 图片显示区域 -->
+                <!-- 显示缩略图 -->
+                <div class="layui-col-lg4">
+                    <div id = "img-thumb" style="padding-top: 1em;"><img src="" alt="查看详情"></div>
+                </div>
+                <!-- 显示地址 -->
+                <div class="layui-col-lg7 layui-col-md-offset1">
+                    <div id="links">
+                        <table class="layui-table" lay-skin="nob" lay-size="sm">
+                            <colgroup>
+                                <col width="100">
+                                <col width="450">
+                                <col>
+                            </colgroup>
+                            <tbody>
+                            <tr>
+                                <td>URL</td>
+                                <td><input type="text" class="layui-input" id="url" data-cip-id="url"></td>
+                                <td><a href="javascript:;" class="layui-btn layui-btn-sm" onclick="copyurl('url')">复制</a></td>
+                            </tr>
+                            <tr>
+                                <td>UBB</td>
+                                <td><input type="text" class="layui-input" id="bbcode" data-cip-id="bbcode"></td>
+                                <td><a href="javascript:;" class="layui-btn layui-btn-sm" onclick="copyurl('bbcode')">复制</a></td>
+                            </tr>
+                            <tr>
+                                <td>markdown</td>
+                                <td><input type="text" class="layui-input" id="markdown" data-cip-id="markdown"></td>
+                                <td><a href="javascript:;" class="layui-btn layui-btn-sm" onclick="copyurl('markdown')">复制</a></td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <!-- 图片显示区域END -->
+            </div>
+        </div>
+        <br>
+        <br>
+    </div>
+    <div class="layui-footer">
+        <a href="https://www.crash.work/aff/QLDAMTOD" target="_blank" style="color: #009688">
+            运行在
+            <img style="width:auto;height:20px" src="https://imgs.uninull.cn/i/16e5cf980b6a922975424dfc5cefbd77/66a10d3880352.png">
+        </a>
+    </div>
+
+</div>
+<script> document.getElementById('alert').onclick = function () { alert('<ul><li>已记录ip和时间戳,违规封ip,违法提交给叔叔</li><li>不得上传色情、暴力、政治的内容</li><li>不得上传侵犯版权、隐私权的内容</li><li>违反规定直接删除图片不另行通知</li><li>所有图片仅供网站内部使用</li></ul>') } </script>
+<script> document.getElementById('alert2').onclick = function () { alert('<ul><li>已记录ip和时间戳,违规封ip,违法提交给叔叔</li><li>不得上传色情、暴力、政治的内容</li><li>不得上传侵犯版权、隐私权的内容</li><li>违反规定直接删除图片不另行通知</li><li>所有图片仅供网站内部使用</li></ul>') } </script>
+
+</body>
+
+<style>
+    .layui-layout-admin .layui-footer {
+        left: 0px;
+        background-color: #2525254f;
+        color: #009688;
+        text-align: center;
+    }
+</style>
+</html>
