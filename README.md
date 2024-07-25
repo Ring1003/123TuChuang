@@ -24,7 +24,7 @@ Demo:   http://img.wiki/
 ---
 Demo部署在: [破碎工坊](https://www.crash.work/aff/QLDAMTOD "破碎工坊")
 
-![图片](https://imgs.uninull.cn/i/16e5cf980b6a922975424dfc5cefbd77/66a10d3880352.png)
+[![图片](https://imgs.uninull.cn/i/16e5cf980b6a922975424dfc5cefbd77/66a10d3880352.png)](https://www.crash.work/aff/QLDAMTOD)
 
 
 
