@@ -3,6 +3,9 @@
 利用123网盘的webdav存储搭建的图床
 代码比较初级,有时间再优化
 
+Demo:   http://img.wiki/
+
+---
 ## 配置
 
 | 属性                                      | 说明             | 是否必填 |
@@ -18,8 +21,14 @@
 
 
 
+---
+Demo部署在: [破碎工坊](https://www.crash.work/aff/QLDAMTOD "破碎工坊")
+
+![图片](https://imgs.uninull.cn/i/16e5cf980b6a922975424dfc5cefbd77/66a10d3880352.png)
 
 
+
+----
 代码参考:
 
 https://github.com/a417707897/webdavTc
