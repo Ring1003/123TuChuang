@@ -57,8 +57,8 @@ function handleres(res,index){
         }
         else{
             layer.closeAll('loading');
-            $("#img-thumb a").attr('href',res.url);
-            $("#img-thumb img").attr('src',res.url);
+            // $("#img-thumb a").attr('href',res.url);
+            // $("#img-thumb img").attr('src',res.url);
             $("#url").val(res.url);
             $("#html").val("<img src = '" + res.url + "' />");
             $("#markdown").val("![](" + res.url + ")");

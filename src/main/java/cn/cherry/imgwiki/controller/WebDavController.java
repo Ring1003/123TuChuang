@@ -6,8 +6,11 @@ import cn.hutool.core.io.FileUtil;
 
 import cn.cherry.imgwiki.config.WebDavConfig;
 
+import cn.hutool.core.thread.ThreadUtil;
+import cn.hutool.db.nosql.redis.RedisDS;
 import com.github.sardine.Sardine;
 import com.github.sardine.SardineFactory;
+import org.apache.commons.io.IOUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.Resource;
 import org.springframework.web.bind.annotation.*;
@@ -16,6 +19,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import javax.servlet.http.HttpServletRequest;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.net.URLConnection;
 import java.text.SimpleDateFormat;
@@ -26,10 +30,12 @@ import org.springframework.http.ResponseEntity;
 
 import org.springframework.core.io.InputStreamResource;
 import org.springframework.http.MediaType;
+import redis.clients.jedis.Jedis;
 
 import java.io.InputStream;
+import java.util.concurrent.TimeUnit;
 
- /**
+/**
  　*
  　* @author MengJie
  　* @date 2024-07-25 10:07:52
@@ -98,7 +104,27 @@ public class WebDavController {
             //文件名拼接: 时间戳+ip+uuid
             String newFileName = millis + ipAddress + uuid+"."+suffix;
 
-            begin.put(path + "/" + newFileName, bytes);
+            //上传到webdav
+            ThreadUtil.execAsync(() ->{
+                try {
+                    begin.put(path + "/" + newFileName, bytes);
+                } catch (IOException e) {
+                    try {
+                        begin.put(path + "/" + newFileName, bytes);
+                    } catch (IOException ex) {
+                        try {
+                            begin.put(path + "/" + newFileName, bytes);
+                        } catch (IOException exc) {
+                            //not to do
+                        }
+                    }
+                }
+            });
+            //存入redis
+            ThreadUtil.execAsync(() ->{
+                Jedis jedis = RedisDS.create().getJedis();
+                jedis.set(newFileName.getBytes(), bytes);
+            });
 
             result.put("code","success");
             result.put("result", "0");
@@ -121,9 +147,10 @@ public class WebDavController {
     @GetMapping("/img/{imgPath:.+}")
     public ResponseEntity<Resource> getFileFromWebDav(@PathVariable String imgPath) {
         try{
+            //1.获取图片名中的时间戳
             int underscoreIndex = imgPath.indexOf('_');
             long timeMillis = Long.parseLong(imgPath.substring(0, underscoreIndex));
-
+            //2.根据时间戳转换成年月
             Calendar calendar = Calendar.getInstance();
             calendar.setTimeInMillis(timeMillis);
             SimpleDateFormat yearSdf = new SimpleDateFormat("yyyy");
@@ -136,16 +163,44 @@ public class WebDavController {
             // 获取最后一个下划线的位置
             int lastUnderscoreIndex = imgPath.lastIndexOf("_");
 
-            // 截取第一个下划线和最后一个下划线之间的内容
+            // 3.获取图片名称中的ip地址, 截取第一个下划线和最后一个下划线之间的内容
             String ipAddress = imgPath.substring(firstUnderscoreIndex + 1, lastUnderscoreIndex);
 
-
+            //4.设置webdav的用户名密码
             Sardine begin = SardineFactory.begin(webDavConfig.getUsername(), webDavConfig.getPassword());
-
+            //5.拼接图片的真实存储路径
             String path = webDavConfig.getUrl() + webDavConfig.getSavePath() +"/"+ipAddress+"/"+year+"/"+month;
+            //图片字节
+            byte[] imageInByte = null;
+            //图片流
+            InputStream inputStream ;
 
-            InputStream inputStream = begin.get(path + "/" + imgPath);
+            //根据图片的真实存储路径先从redis中获取
 
+            Jedis jedis = RedisDS.create().getJedis();
+            imageInByte = jedis.get(imgPath.getBytes());
+
+            if (imageInByte == null){
+                //从webdav中获取图片信息流
+                inputStream = begin.get(path + "/" + imgPath);
+                if (inputStream!=null){
+                    //在这里异步操作,将文件转为byte[]字节存到redis中
+                    ThreadUtil.execAsync(() ->{
+                        try {
+                            byte[] imageInByteNew = IOUtils.toByteArray(inputStream);
+                            jedis.set(imgPath.getBytes(), imageInByteNew);
+                            jedis.expire(imgPath.getBytes(),86400);
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
+                    });
+                }
+
+            }else {
+                // 字节转 InputStream
+                inputStream = new ByteArrayInputStream(imageInByte);
+            }
+            //获取文件类型
             String mimeType = URLConnection.guessContentTypeFromName(imgPath);
             return ResponseEntity.ok()
                     .contentType(MediaType.valueOf(mimeType))

@@ -19,16 +19,23 @@ Demo:   http://img.wiki/
 | server.port                               | 程序端口，默认11223   | √        |
 | localUrl.ip                               | 你的域名 或者 ip:端口  | √        |
 
-
+## redis配置
+redis配置文件: ```src/main/resources/config/redis.setting```
 
 ---
-Demo部署在: [破碎工坊](https://www.crash.work/aff/QLDAMTOD "破碎工坊")
-
-[![图片](https://imgs.uninull.cn/i/16e5cf980b6a922975424dfc5cefbd77/66a10d3880352.png)](https://www.crash.work/aff/QLDAMTOD)
-
-
+### 2024.08.18更新
++ 配置redis, 上传/访问 的图片会异步存到redis中24小时,提升图片访问速度
++ 异步上传: 图片上传后会直接返回访问地址,后端会异步上传到webdav和redis
 
 ----
 代码参考:
 
 https://github.com/a417707897/webdavTc
+
+
+-----
+待优化:
+
+1.修改为本地存储,并异步webdav存储,(可以考虑也异步存到tgh一份)
+
+2.访问图片时,默认返回本地存储的图片,如果报错,则返回webdav的图片
