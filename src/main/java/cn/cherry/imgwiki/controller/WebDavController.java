@@ -105,7 +105,7 @@ public class WebDavController {
             String newFileName = millis + ipAddress + uuid+"."+suffix;
 
             //上传到webdav
-            ThreadUtil.execAsync(() ->{
+            ThreadUtil.execute(() ->{
                 try {
                     begin.put(path + "/" + newFileName, bytes);
                 } catch (IOException e) {
@@ -115,15 +115,23 @@ public class WebDavController {
                         try {
                             begin.put(path + "/" + newFileName, bytes);
                         } catch (IOException exc) {
-                            //not to do
+                            System.err.println("上传erbdav失败:"+e.getMessage());
                         }
                     }
                 }
             });
             //存入redis
-            ThreadUtil.execAsync(() ->{
-                Jedis jedis = RedisDS.create().getJedis();
-                jedis.set(newFileName.getBytes(), bytes);
+
+            ThreadUtil.execute(() ->{
+                try {
+                    System.out.println("存入redis:"+newFileName);
+                    Jedis jedis = RedisDS.create().getJedis();
+                    jedis.set(newFileName.getBytes(), bytes);
+                    jedis.expire(newFileName.getBytes(),86400);
+                }catch (Exception e){
+                    System.err.println("存redis失败:"+e.getMessage());
+                }
+
             });
 
             result.put("code","success");
@@ -180,21 +188,26 @@ public class WebDavController {
             Jedis jedis = RedisDS.create().getJedis();
             imageInByte = jedis.get(imgPath.getBytes());
 
+            //从webdav中获取图片信息流
+//            inputStream = begin.get(path + "/" + imgPath);
+
             if (imageInByte == null){
                 //从webdav中获取图片信息流
                 inputStream = begin.get(path + "/" + imgPath);
-                if (inputStream!=null){
-                    //在这里异步操作,将文件转为byte[]字节存到redis中
-                    ThreadUtil.execAsync(() ->{
-                        try {
-                            byte[] imageInByteNew = IOUtils.toByteArray(inputStream);
-                            jedis.set(imgPath.getBytes(), imageInByteNew);
-                            jedis.expire(imgPath.getBytes(),86400);
-                        } catch (IOException e) {
-                            e.printStackTrace();
-                        }
-                    });
-                }
+//                if (inputStream!=null){
+//                    //在这里异步操作,将文件转为byte[]字节存到redis中
+//                    ThreadUtil.execute(() ->{
+//                        try {
+//                            System.out.println("存入redis:"+imgPath);
+//                            byte[] imageInByteNew = IOUtils.toByteArray(inputStream);
+//                            jedis.set(imgPath.getBytes(), imageInByteNew);
+//                            jedis.expire(imgPath.getBytes(),86400);
+//                        } catch (IOException e) {
+//                            e.printStackTrace();
+//                            System.err.println("存redis失败:"+e.getMessage());
+//                        }
+//                    });
+//                }
 
             }else {
                 // 字节转 InputStream
