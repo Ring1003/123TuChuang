@@ -53,6 +53,14 @@ webdav:
   username: 15666666666
   password: 1tt6xxxxxxxxxxxxxxxxxxx
 
+# 图片访问的地址
 localUrl:
   ip: img.wiki
+
+# 本地缓存
+localCache:
+  #图片缓存路径
+  path: /Users/meng/Downloads/测试待删除
+  # 缓存大小(单位G)
+  size: 10
 
