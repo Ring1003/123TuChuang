@@ -4,35 +4,24 @@ package cn.cherry.imgwiki.controller;
 import cn.cherry.imgwiki.config.LocalCacheConfig;
 import cn.cherry.imgwiki.util.NetworkUtils;
 import cn.hutool.core.io.FileUtil;
-
 import cn.cherry.imgwiki.config.WebDavConfig;
-
 import cn.hutool.core.thread.ThreadUtil;
-import cn.hutool.db.nosql.redis.RedisDS;
 import com.github.sardine.Sardine;
 import com.github.sardine.SardineFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.Resource;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
-
 import org.springframework.web.multipart.MultipartFile;
-
 import javax.servlet.http.HttpServletRequest;
-
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.net.SocketException;
 import java.net.URLConnection;
 import java.text.SimpleDateFormat;
 import java.util.*;
-
 import org.springframework.http.ResponseEntity;
-
-
 import org.springframework.core.io.InputStreamResource;
 import org.springframework.http.MediaType;
-import redis.clients.jedis.Jedis;
-
 import java.io.InputStream;
 
 /**
@@ -60,7 +49,7 @@ public class WebDavController {
 
         Map<String, Object> result = new HashMap<>();
 
-        //webdav账号密码
+        // 创建Sardine实例，使用WebDAV的账号和密码进行身份验证
         Sardine begin = SardineFactory.begin(webDavConfig.getUsername(), webDavConfig.getPassword());
 
         try {
@@ -127,19 +116,7 @@ public class WebDavController {
 
             //上传到webdav
             ThreadUtil.execute(() ->{
-                try {
-                    begin.put(path + "/" + newFileName, bytes);
-                } catch (IOException e) {
-                    try {
-                        begin.put(path + "/" + newFileName, bytes);
-                    } catch (IOException ex) {
-                        try {
-                            begin.put(path + "/" + newFileName, bytes);
-                        } catch (IOException exc) {
-                            System.err.println("上传erbdav失败:"+e.getMessage());
-                        }
-                    }
-                }
+                uploadToWebDAV(begin, path, newFileName, bytes);
             });
 
             result.put("code","success");
@@ -155,6 +132,46 @@ public class WebDavController {
 
     }
 
+    /**
+     * 将文件上传到WebDAV服务器
+     *
+     * @param path        上传的目标路径
+     * @param newFileName 新文件名
+     * @param bytes       文件的字节数组
+     */
+    public void uploadToWebDAV(Sardine begin,String path, String newFileName, byte[] bytes) {
+
+        int maxRetries = 3; // 最大重试次数
+        int attempt = 0; // 当前尝试次数
+        boolean success = false; // 上传是否成功的标志
+
+        // 尝试上传文件，直到成功或达到最大重试次数
+        while (attempt < maxRetries && !success) {
+            try {
+                // 执行文件上传
+                begin.put(path + "/" + newFileName, bytes);
+                success = true; // 上传成功
+                System.out.println("上传webdav成功: " + path + "/" + newFileName);
+            } catch (SocketException e) {
+                attempt++;
+                System.err.println("网络异常，上传webdav失败，尝试次数：" + attempt + "，错误信息：" + e.getMessage());
+                if (attempt >= maxRetries) {
+                    System.err.println("达到最大重试次数，上传失败。");
+                }
+                // 休眠一段时间，避免频繁重试
+                try {
+                    Thread.sleep(3000); // 休眠3秒
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt(); // 恢复中断状态
+                }
+            } catch (IOException e) {
+                System.err.println("上传webdav失败，IO错误信息：" + e.getMessage());
+                break; // 遇到其他IO异常，直接退出
+            }
+        }
+    }
+
+
      /**
      　* 图片回显
      　* @author MengJie
@@ -163,6 +180,11 @@ public class WebDavController {
     @GetMapping("/img/{imgPath:.+}")
     public ResponseEntity<Resource> getFileFromWebDav(@PathVariable String imgPath) {
         try{
+            //4.设置webdav的用户名密码
+            Sardine begin = SardineFactory.begin(webDavConfig.getUsername(), webDavConfig.getPassword());
+            String basePath = webDavConfig.getUrl() + webDavConfig.getSavePath();
+
+
             //图片流
             InputStream inputStream ;
             //1.获取图片名中的时间戳
@@ -192,6 +214,9 @@ public class WebDavController {
             String mimeType = URLConnection.guessContentTypeFromName(imgPath);
             String filePath = "/"+ipAddress+"/"+year+"/"+month;
 
+            //5.拼接图片的真实存储路径
+            String path = basePath +filePath;
+
             //从本地缓存路径获取图片
             if (localCacheConfig.getPath() != null && localCacheConfig.getPath().length() > 0){
                 //拼接本地缓存路径
@@ -199,18 +224,32 @@ public class WebDavController {
                 //判断本地缓存路径是否存在
                 if (FileUtil.exist(localPath)){
                     inputStream = FileUtil.getInputStream(localPath);
-                    //todo 异步判断webdav上有没有这个图片,没有的话就上传一下
+
+                    ThreadUtil.execute(() -> {
+                        String requestPath = path + "/" + imgPath;
+                        System.out.println("请求的WebDAV路径: " + requestPath);
+
+                        try (InputStream inputStream1 = begin.get(requestPath)) {
+                            // 检查InputStream是否为null
+                            if (inputStream1 == null) {
+                                // 如果返回null，表示文件不存在，进行上传
+                                uploadToWebDAV( begin, path, imgPath, FileUtil.readBytes(localPath));
+                            } else {
+                                // 文件存在，处理逻辑
+                                System.out.println("文件已存在，无需上传: " + imgPath);
+                            }
+                        } catch (IOException e) {
+                            // 捕获IOException，表示可能是404错误或其他IO异常
+                            System.out.println("文件404未找到，准备上传: " + imgPath);
+                            uploadToWebDAV( begin, path, imgPath, FileUtil.readBytes(localPath));
+                        }
+                    });
 
                     return ResponseEntity.ok()
                             .contentType(MediaType.valueOf(mimeType))
                             .body(new InputStreamResource(inputStream));
                 }
             }
-
-            //4.设置webdav的用户名密码
-            Sardine begin = SardineFactory.begin(webDavConfig.getUsername(), webDavConfig.getPassword());
-            //5.拼接图片的真实存储路径
-            String path = webDavConfig.getUrl() + webDavConfig.getSavePath() +filePath;
 
             //从webdav中获取图片信息流
             inputStream = begin.get(path + "/" + imgPath);
@@ -229,7 +268,7 @@ public class WebDavController {
                     .body(new InputStreamResource(inputStream));
         }catch (Exception e){
             e.printStackTrace();
-            return null;
+            return ResponseEntity.notFound().build();
         }
 
 
