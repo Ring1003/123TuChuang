@@ -6,15 +6,18 @@ import cn.cherry.imgwiki.util.NetworkUtils;
 import cn.hutool.core.io.FileUtil;
 import cn.cherry.imgwiki.config.WebDavConfig;
 import cn.hutool.core.thread.ThreadUtil;
+import com.fasterxml.jackson.core.JsonToken;
 import com.github.sardine.Sardine;
 import com.github.sardine.SardineFactory;
+import lombok.extern.java.Log;
+import org.apache.commons.io.IOUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.Resource;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import javax.servlet.http.HttpServletRequest;
-import java.io.IOException;
+import java.io.*;
 import java.net.SocketException;
 import java.net.URLConnection;
 import java.text.SimpleDateFormat;
@@ -22,7 +25,8 @@ import java.util.*;
 import org.springframework.http.ResponseEntity;
 import org.springframework.core.io.InputStreamResource;
 import org.springframework.http.MediaType;
-import java.io.InputStream;
+
+import java.util.logging.Level;
 
 /**
  　*
@@ -30,6 +34,7 @@ import java.io.InputStream;
  　* @date 2024-07-25 10:07:52
  　*/
 @RestController
+@Log
 public class WebDavController {
 
     @Autowired
@@ -221,51 +226,106 @@ public class WebDavController {
             if (localCacheConfig.getPath() != null && localCacheConfig.getPath().length() > 0){
                 //拼接本地缓存路径
                 String localPath = localCacheConfig.getPath() + filePath + "/" + imgPath;
-                //判断本地缓存路径是否存在
-                if (FileUtil.exist(localPath)){
-                    inputStream = FileUtil.getInputStream(localPath);
+                // 获取文件对象
+                File localFile = new File(localPath);
+                //// 判断本地缓存文件是否存在且大小大于0（防止空文件或损坏文件）
+                if (localFile.exists() && localFile.length() > 0){
+                    // 检查图片文件的完整性
+                    boolean isValidImage = false;
+                    try (FileInputStream fis = new FileInputStream(localFile)) {
+                        byte[] magic = new byte[8];  // 读取前8个字节用于判断图片格式
+                        int read = fis.read(magic);
 
-                    ThreadUtil.execute(() -> {
-                        String requestPath = path + "/" + imgPath;
-                        System.out.println("请求的WebDAV路径: " + requestPath);
-
-                        try (InputStream inputStream1 = begin.get(requestPath)) {
-                            // 检查InputStream是否为null
-                            if (inputStream1 == null) {
-                                // 如果返回null，表示文件不存在，进行上传
-                                uploadToWebDAV( begin, path, imgPath, FileUtil.readBytes(localPath));
-                            } else {
-                                // 文件存在，处理逻辑
-                                System.out.println("文件已存在，无需上传: " + imgPath);
-                            }
-                        } catch (IOException e) {
-                            // 捕获IOException，表示可能是404错误或其他IO异常
-                            System.out.println("文件404未找到，准备上传: " + imgPath);
-                            uploadToWebDAV( begin, path, imgPath, FileUtil.readBytes(localPath));
+                        if (read >= 2) {  // 至少需要读取2个字节才能判断
+                            // JPEG文件头: FF D8
+                            // PNG文件头: 89 50 4E 47 0D 0A 1A 0A
+                            // GIF文件头: 47 49 46 38
+                            isValidImage =
+                                    // JPEG检查
+                                    (magic[0] == (byte) 0xFF && magic[1] == (byte) 0xD8) ||
+                                            // PNG检查
+                                            (magic[0] == (byte) 0x89 && magic[1] == (byte) 0x50 &&
+                                                    magic[2] == (byte) 0x4E && magic[3] == (byte) 0x47) ||
+                                            // GIF检查
+                                            (magic[0] == (byte) 0x47 && magic[1] == (byte) 0x49 &&
+                                                    magic[2] == (byte) 0x46 && magic[3] == (byte) 0x38);
                         }
-                    });
+                    } catch (IOException e) {
+                        System.err.println("检查图片文件完整性时发生错误: " + localPath +";"+ e.getMessage());
+                        isValidImage = false;
+                    }
+                    if (isValidImage){
+                        System.out.println("本地缓存路径存在: " + localPath);
+                        inputStream = FileUtil.getInputStream(localPath);
 
-                    return ResponseEntity.ok()
-                            .contentType(MediaType.valueOf(mimeType))
-                            .body(new InputStreamResource(inputStream));
+                        ThreadUtil.execute(() -> {
+                            String requestPath = path + "/" + imgPath;
+                            System.out.println("请求的WebDAV路径: " + requestPath);
+
+                            try (InputStream inputStream1 = begin.get(requestPath)) {
+                                // 检查InputStream是否为null
+                                if (inputStream1 == null) {
+                                    // 如果返回null，表示文件不存在，进行上传
+                                    uploadToWebDAV( begin, path, imgPath, FileUtil.readBytes(localPath));
+                                } else {
+                                    // 文件存在，处理逻辑
+                                    System.out.println("文件已存在，无需上传: " + imgPath);
+                                }
+                            } catch (IOException e) {
+                                // 捕获IOException，表示可能是404错误或其他IO异常
+                                System.out.println("文件404未找到，准备上传: " + imgPath);
+                                uploadToWebDAV( begin, path, imgPath, FileUtil.readBytes(localPath));
+                            }
+                        });
+
+                        return ResponseEntity.ok()
+                                .contentType(MediaType.valueOf(mimeType))
+                                .body(new InputStreamResource(inputStream));
+                    }else {
+                        System.out.println("本地缓存路径存在,但文件不完整: " + localPath);
+                    }
+
+
                 }
+                System.out.println("本地缓存路径不存在: " + localPath);
             }
-
+            System.out.println("从webdav中获取图片信息流:"+path + "/" + imgPath);
             //从webdav中获取图片信息流
             inputStream = begin.get(path + "/" + imgPath);
+            // 复制输入流
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            byte[] buffer = new byte[8192];
+            int len;
+            while ((len = inputStream.read(buffer)) > -1) {
+                baos.write(buffer, 0, len);
+            }
+            baos.flush();
+
+            // 创建两个新的输入流，一个用于返回，一个用于异步写入
+            ByteArrayInputStream responseStream = new ByteArrayInputStream(baos.toByteArray());
+            ByteArrayInputStream cacheStream = new ByteArrayInputStream(baos.toByteArray());
+
 
             //异步将获取到的图片写入本地缓存文件夹
             ThreadUtil.execute(() ->{
                 try {
-                    FileUtil.writeFromStream(inputStream, localCacheConfig.getPath() + filePath + "/" + imgPath);
+                    System.out.println("异步将获取到的图片写入本地缓存文件夹");
+//                    FileUtil.writeFromStream(inputStream, localCacheConfig.getPath() + filePath + "/" + imgPath);
+                    FileUtil.writeFromStream(cacheStream, localCacheConfig.getPath() + filePath + "/" + imgPath);
+                    System.out.println("异步写入完成");
                 }catch (Exception e){
                     System.err.println("写入本地缓存失败:"+e.getMessage());
+                }finally {
+                    IOUtils.closeQuietly(cacheStream);
                 }
             });
+            // 关闭原始输入流和字节数组输出流
+            IOUtils.closeQuietly(inputStream);
+            IOUtils.closeQuietly(baos);
 
             return ResponseEntity.ok()
                     .contentType(MediaType.valueOf(mimeType))
-                    .body(new InputStreamResource(inputStream));
+                    .body(new InputStreamResource(responseStream));
         }catch (Exception e){
             e.printStackTrace();
             return ResponseEntity.notFound().build();

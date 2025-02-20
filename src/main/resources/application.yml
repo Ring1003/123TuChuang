@@ -1,6 +1,24 @@
 server:
   port: 11223
 
+# webdav服务器配置(必填)
+webdav:
+  url: https://webdav-11111111.pd1.123pan.cn/webdav
+  path: /TuChuang
+  username: 15666666666
+  password: xxxxxjdh1000d7xxxxxxxxxxxxx
+
+# 图片访问的地址(域名或者ip)(必填)
+localUrl:
+  ip: img.wiki
+
+# 本地缓存(必填)
+localCache:
+  #图片缓存路径
+  path: ~/123TuChuang/image
+  # 缓存大小(单位G)
+  size: 10
+
 spring:
   datasource:
     url: jdbc:mysql://localhost:3306/bim?serverTimezone=Asia/Shanghai&zeroDateTimeBehavior=convertToNull&autoReconnect=true&useSSL=false&failOverReadOnly=false
@@ -47,20 +65,5 @@ spring:
 #  mapper-locations: classpath:mapper/*.xml # 接口的配置文件的位置
 
 
-webdav:
-  url: https://webdav.123pan.cn/webdav
-  path: /Tu
-  username: 15666666666
-  password: 1tt6xxxxxxxxxxxxxxxxxxx
 
-# 图片访问的地址
-localUrl:
-  ip: img.wiki
-
-# 本地缓存
-localCache:
-  #图片缓存路径
-  path: /Users/meng/Downloads/测试待删除
-  # 缓存大小(单位G)
-  size: 10
 
